@@ -11,7 +11,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME}
         SHARED
-        main.cpp
+        src/main.cpp
 )
 
 add_subdirectory(src)
