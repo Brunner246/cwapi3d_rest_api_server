@@ -80,40 +80,63 @@ private:
         std::ignore = socket.shutdown(tcp::socket::shutdown_send, ec);
     }
 
-    domain::HttpRequest mapOnHttpRequest(const http::request<http::string_body> &req)
+    static domain::HttpRequest mapOnHttpRequest(const http::request<http::string_body> &req)
     {
-        domain::HttpRequest appReq;
-        appReq.method = getHttpMethod(req);
+        domain::HttpRequest result;
+        result.method = getHttpMethod(req);
         //TODO Only GET and POST are supported in this example
-        appReq.path = req.target();
-        appReq.body = req.body();
+        result.path = req.target();
+        result.body = req.body();
         for (const auto &field : req) {
-            appReq.headers[field.name_string()] = field.value();
+            result.headers[field.name_string()] = field.value();
         }
+
+        return result;
     }
     void handleRequest(http::request<http::string_body> &&req, http::response<http::string_body> &res)
     {
-        domain::HttpRequest appReq = mapOnHttpRequest(req);
-
         domain::HttpResponse appRes;
-
-        if (appReq.method.httpMethod == domain::HttpMethod::HttpVerb::GET && getHandlers.contains(appReq.path)) {
-            getHandlers[appReq.path](std::move(appReq), appRes);
-        }
-        else if (appReq.method.httpMethod == domain::HttpMethod::HttpVerb::POST && postHandlers.contains(appReq.path)) {
-            postHandlers[appReq.path](std::move(appReq), appRes);
-        }
-        else {
-            appRes.status_code = 404;
-            appRes.body = "The resource was not found.";
-            appRes.headers["Content-Type"] = "text/plain";
+        if (!processRequest(mapOnHttpRequest(req), appRes)) {
+            setNotFoundResponse(appRes);
         }
 
+        buildHttpResponse(appRes, res);
+    }
+
+    bool processRequest(domain::HttpRequest appReq, domain::HttpResponse &appRes)
+    {
+        const auto &method = appReq.method.httpMethod;
+        const auto &path = appReq.path;
+
+        if (method == domain::HttpMethod::HttpVerb::GET && getHandlers.contains(path)) {
+            getHandlers[path](std::move(appReq), appRes);
+            return true;
+        }
+
+        if (method == domain::HttpMethod::HttpVerb::POST && postHandlers.contains(path)) {
+            postHandlers[path](std::move(appReq), appRes);
+            return true;
+        }
+
+        return false;
+    }
+
+    static void setNotFoundResponse(domain::HttpResponse &appRes)
+    {
+        appRes.status_code = 404;
+        appRes.body = "The resource was not found.";
+        appRes.headers["Content-Type"] = "text/plain";
+    }
+
+    static void buildHttpResponse(const domain::HttpResponse &appRes, http::response<http::string_body> &res)
+    {
         res.result(static_cast<http::status>(appRes.status_code));
         res.body() = appRes.body;
+
         for (const auto &[key, value] : appRes.headers) {
             res.set(http::string_to_field(key), value);
         }
+
         res.prepare_payload();
     }
 

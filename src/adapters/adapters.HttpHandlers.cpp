@@ -1,6 +1,9 @@
 //
 // Created by MichaelBrunner on 12/12/2024.
 //
+module;
+
+#include <cwapi3d/CwAPI3D.h>
 
 module adapters.HttpHandlers;
 

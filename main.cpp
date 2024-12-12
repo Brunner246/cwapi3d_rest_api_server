@@ -2,17 +2,13 @@
 #include <boost/beast/http.hpp>
 #include <boost/asio.hpp>
 #include <boost/json.hpp>
-#include <iostream>
-#include <string>
-#include <thread>
-#include <unordered_map>
-#include <functional>
-#include <utility>
+#include <boost/locale.hpp>
 #include <cwapi3d/CwAPI3D.h>
 
 import domain;
 import app.HttpServer;
 import adapters.HttpHandlers;
+import std;
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -24,9 +20,9 @@ std::jthread SERVER_THREAD;
 CWAPI3D_PLUGIN bool plugin_x64_init(CwAPI3D::ControllerFactory *aFactory)
 {
     try {
-        auto app =
-            std::make_unique<rest_api::app::HttpServer>(rest_api::domain::Address{"127.0.0.1"},
-                                                        rest_api::domain::Port{8080});
+        const auto address = rest_api::domain::Address{"127.0.0.1"};
+        const auto port = rest_api::domain::Port{8080};
+        auto app = std::make_unique<rest_api::app::HttpServer>(address, port);
 
         app->get(
             "/elements",
@@ -62,6 +58,10 @@ CWAPI3D_PLUGIN bool plugin_x64_init(CwAPI3D::ControllerFactory *aFactory)
 
         auto thread = std::jthread([App = std::move(app)]() { App->run(); });
         SERVER_THREAD = std::move(thread);
+
+        const auto formattedMessage = std::format("Server started on http://{}/", address.toString(), port);
+        aFactory->getUtilityController()->printToConsole(
+            std::wstring(formattedMessage.begin(), formattedMessage.end()).c_str());
 
         return EXIT_SUCCESS;
     }
